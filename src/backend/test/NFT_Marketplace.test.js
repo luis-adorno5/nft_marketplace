@@ -85,5 +85,46 @@ describe("NFTMarketplace", async function(){
                 ).to.be.revertedWith("Price must be greater than 0!!!");
         });
     });
+    describe("Purchasing marketplace items.", function(){
+        let price = 2;
+        beforeEach(async function(){
+            //Address 1 mints an NFT
+            await nft.connect(address1).mint(URI);
+            //Approve the marketplace to sell the nft
+            await nft.connect(address1).setApprovalForAll(marketplace.address, true);
+            //Address 1 makes their nft a marketplace item
+            await marketplace.connect(address1).makeItem(nft.address, 1, toWei(price));
+        });
+        it("Should update item as sold, pay seller, transfer NFT to buyer, charge fees and emit a Bought event.", async function(){
+            const sellerInitialEthBalance = await address1.getBalance();
+            const feeAccountInitialEthBal = await deployer.getBalance();
+            //Get the items totalPrice 
+            let totalPriceInWei = await marketplace.getTotalPrice(1);
+            //Address 2 purchases an item
+            await expect(marketplace.connect(address2).purchaseItem(1, {value: totalPriceInWei}))
+                .to.emit(marketplace, "Bought")
+                .withArgs(
+                    1,
+                    nft.address,
+                    1,
+                    toWei(price),
+                    address1.address,
+                    address2.address
+                );
+            const sellerFinalEthBalance = await address1.getBalance();
+            const feeAccountFinalEthBal = await deployer.getBalance();
+            //Seller should receive payment for the price of the NFT sold.
+            expect(+fromWei(sellerFinalEthBalance)).to.equal(+price + +fromWei(sellerInitialEthBalance));
+            //Fee calculation
+            let fee = (feePercent/100)*price;
+            //Fee Account should receive fee
+            expect(+fromWei(feeAccountFinalEthBal)).to.equal(+fee+ +fromWei(feeAccountInitialEthBal))
+            //The buyer should now own the nft
+            expect(await nft.ownerOf(1)).to.equal(address2.address);
+            //NFT traded should be marked as sold
+            expect(await nft.ownerOf(1)).to.equal(address2.address);
+        });
+    });
 
 });
+
