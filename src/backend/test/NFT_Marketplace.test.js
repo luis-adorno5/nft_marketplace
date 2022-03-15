@@ -122,9 +122,25 @@ describe("NFTMarketplace", async function(){
             //The buyer should now own the nft
             expect(await nft.ownerOf(1)).to.equal(address2.address);
             //NFT traded should be marked as sold
-            expect(await nft.ownerOf(1)).to.equal(address2.address);
+            expect((await marketplace.items(1)).sold).to.equal(true);
+        });
+        it("Should fail for invalid id's, sold items and when not enough ether is paid.", async function(){
+            let totalPriceInWei = await marketplace.getTotalPrice(1);
+            await expect(
+                marketplace.connect(address2).purchaseItem(2, {value: totalPriceInWei})
+            ).to.be.revertedWith("Item doesn't exist!");
+            await expect(
+                marketplace.connect(address2).purchaseItem(4, {value: totalPriceInWei})  
+            ).to.be.revertedWith("Item doesn't exist!");
+            await expect(
+                marketplace.connect(address2).purchaseItem(1, {value: toWei(price)})  
+            ).to.be.revertedWith("Not enough ether to cover item price and market fee!");
+            //Address2 purchases item 1
+            await marketplace.connect(address2).purchaseItem(1, {value: totalPriceInWei});
+            await expect(
+                marketplace.connect(address1).purchaseItem(1, {value: totalPriceInWei})  
+            ).to.be.revertedWith("Item already sold!");
         });
     });
-
 });
 
